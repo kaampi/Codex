@@ -1,6 +1,6 @@
 {
   "name": "@ocedo-apps/storycore",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shared, versioned export contract for the StoryBook AI family of apps. Holds no data itself — read-only, propose-only.",
   "type": "module",
   "private": true,

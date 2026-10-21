@@ -50,16 +50,51 @@ export const ExportedBibleSectionSchema = z.object({
 });
 export type ExportedBibleSection = z.infer<typeof ExportedBibleSectionSchema>;
 
+/**
+ * One scene within a chapter, in reading order. `description` is the
+ * scene's own slice of the chapter's prose — "what actually happens" at
+ * scene granularity, always present (possibly ""), never the AI-generated
+ * kind of summary. `instructions` is the scene's own writing note (focus,
+ * required beats, editorial reminders) — not in-world canon, the same
+ * distinction `brief` draws at the chapter level below.
+ */
+export const ExportedSceneSchema = z.object({
+  id: z.string().min(1),
+  sequence_index: z.number().int().nonnegative(),
+  title: z.string().min(1).optional(),
+  description: z.string(),
+  instructions: z.string().min(1).optional()
+});
+export type ExportedScene = z.infer<typeof ExportedSceneSchema>;
+
 export const ExportedChapterSchema = z.object({
   id: z.string().min(1),
   sequence_index: z.number().int().nonnegative(),
   title: z.string(),
-  prose: z.string()
+  prose: z.string(),
+  /** The chapter's own writing instruction — not in-world canon. Always present, "" when the author left it empty. Added in format 2; defaults to "" reading a format-1 export. */
+  brief: z.string().default(""),
+  /**
+   * Always at least one entry for a chapter with any prose — a chapter the
+   * author never explicitly split still gets one scene spanning its whole
+   * prose (same convention StoryBook AI uses internally), so this is never
+   * an empty array for a non-empty chapter. Added in format 2; defaults to
+   * [] reading a format-1 export, which has no scene data to recover.
+   */
+  scenes: z.array(ExportedSceneSchema).default([])
 });
 export type ExportedChapter = z.infer<typeof ExportedChapterSchema>;
 
 export const MANUSCRIPT_EXPORT_KIND = "storycore.manuscript-export";
-export const MANUSCRIPT_EXPORT_FORMAT = 1;
+/**
+ * Format 2 adds `synopsis` (manuscript-level) and `brief`/`scenes` (per
+ * chapter) — for comic/series adaptation, where a sibling app wants the
+ * author's own structural intent (what each chapter/scene is *for*) and
+ * scene breakdown (for page/panel planning), not just raw prose. Both new
+ * chapter fields default to their format-1-compatible empty value, so a
+ * format-1 export still parses under the format-2 schema unchanged.
+ */
+export const MANUSCRIPT_EXPORT_FORMAT = 2;
 
 /**
  * The full export contract. Deliberately NOT StoryBook AI's internal `Book`
@@ -77,12 +112,19 @@ export const MANUSCRIPT_EXPORT_FORMAT = 1;
  */
 export const ManuscriptExportSchema = z.object({
   kind: z.literal(MANUSCRIPT_EXPORT_KIND),
-  format: z.literal(MANUSCRIPT_EXPORT_FORMAT),
+  // A union of every format this package has ever understood, not just the
+  // current one — so a format-1 export (literal 1) still validates under
+  // today's schema, same as it always has. parse.ts's own "newer-format"
+  // check is what actually rejects a format this build doesn't know yet;
+  // this union only needs to list formats *up to* MANUSCRIPT_EXPORT_FORMAT.
+  format: z.union([z.literal(1), z.literal(2)]),
   exportedAt: z.string().min(1),
   sourceApp: z.literal("storybook-ai"),
   sourceBookId: z.string().min(1),
   title: z.string(),
   illustrationStyle: z.string().default(""),
+  /** The manuscript-level synopsis — added in format 2, defaults to "" reading a format-1 export. */
+  synopsis: z.string().default(""),
   chapters: z.array(ExportedChapterSchema),
   bible: z.array(ExportedBibleSectionSchema)
 });

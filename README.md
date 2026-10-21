@@ -38,7 +38,16 @@ try {
 
 ## Status
 
-v0.1.0 — first cut, StoryBook AI → ComicBook AI direction only. `MANUSCRIPT_EXPORT_FORMAT = 1`.
+v0.2.0, `MANUSCRIPT_EXPORT_FORMAT = 2` — StoryBook AI → ComicBook AI direction only.
+
+Format 2 adds, for comic/series adaptation: a manuscript-level `synopsis`,
+and per-chapter `brief` (the author's own writing instruction for that
+chapter) plus `scenes` (each with `id`, `sequence_index`, optional `title`,
+`description` — the scene's own slice of the chapter's prose, i.e. what
+actually happens — and optional `instructions`, the scene's own writing
+note). A chapter never split into scenes still exports one scene spanning
+its whole prose. A format-1 export still validates under this schema; the
+new fields default to `""`/`[]` when absent.
 
 ## License
 
