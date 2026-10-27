@@ -8,6 +8,6 @@
     "test": "node --test *.test.mjs"
   },
   "dependencies": {
-    "@ocedo-apps/storycore": "*"
+    "@ocedo-apps/storycore": "file:../.."
   }
 }

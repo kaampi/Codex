@@ -4,12 +4,11 @@ Shared, versioned export contract for the StoryBook AI family of apps — curren
 
 ## Repository layout
 
-This is an npm workspaces monorepo with two packages:
+The repo root **is** the `@ocedo-apps/storycore` package described below (`src/`, `dist/` once built) — that's deliberate: StoryBook AI and ComicBook AI consume it as a plain npm git dependency pointed at this repo's root (`git+https://github.com/ocedo-apps/storycore.git`), and npm's git-dependency support has no notion of "look in a subdirectory" — the fetched repo's own root `package.json` has to be the thing they get.
 
-- [`packages/schema`](packages/schema) — `@ocedo-apps/storycore`, the export contract described below. No data, no server.
-- [`packages/service`](packages/service) — `@ocedo-apps/storycore-service`, the local Core service (SQLite-backed workspaces, grants, revisions, media, encrypted/scheduled backups and a local `/admin` page). It imports `@ocedo-apps/storycore` to validate manuscript publications against the same contract.
+[`packages/service`](packages/service) is a sibling npm workspace, `@ocedo-apps/storycore-service` — the local Core service (SQLite-backed workspaces, grants, revisions, media, encrypted/scheduled backups and a local `/admin` page). Nobody installs it as a dependency; it's run directly (`node server.mjs`). It depends on the root package by name (`@ocedo-apps/storycore`) to validate manuscript publications against the same contract — `npm install` at the repo root links that automatically via npm workspaces.
 
-`npm install` at the repo root links both packages together via npm workspaces; `npm run build`/`npm test` at the root delegate to the schema package (the service package has no build step — see its own `npm test`).
+`npm run build`/`npm test` at the root build/test the schema package only; the service package has its own `npm test` (see below).
 
 ## What this is
 
