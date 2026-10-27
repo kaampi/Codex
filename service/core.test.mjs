@@ -144,10 +144,15 @@ test('private full-book snapshots cannot be granted to another app', async () =>
     return { status: response.status, body: await response.json() };
   };
   try {
-    const ws = (await call('storybook', 'POST', '/v1/workspaces', { kind: 'private-snapshot', projectId: 'book-one' })).body;
-    const rec = (await call('storybook', 'POST', `/v1/workspaces/${ws.id}/records`, {
-      body: { title: 'Draft', brainstorm: 'private notes', facts: [{ status: 'ai_proposed' }] }
+    const saved = (await call('storybook', 'PUT', '/v1/private-manuscripts/book-one', {
+      book: { id: 'book-one', chapters: [{ prose: 'Draft' }], brainstorm: 'private notes', facts: [{ status: 'ai_proposed' }] }
     })).body;
+    const ws = saved.workspace, rec = saved.record;
+    // Even the owner must use the dedicated private-manuscript route, which
+    // enforces the whole-book shape; the generic record routes must not
+    // become a side door around that validation.
+    assert.equal((await call('storybook', 'POST', `/v1/workspaces/${ws.id}/records`, { body: { tampered: true } })).status, 403);
+    assert.equal((await call('storybook', 'PUT', `/v1/records/${rec.id}`, { expectedRevision: 1, body: { tampered: true } })).status, 403);
     for (const app of ['sandbox', 'comic']) {
       assert.equal((await call('storybook', 'POST', `/v1/workspaces/${ws.id}/grants`, { readerApp: app })).status, 403);
       assert.equal((await call('storybook', 'PUT', `/v1/workspaces/${ws.id}/grants/${app}`, { visible: true })).status, 403);
@@ -242,8 +247,9 @@ test('shared manuscript publishing stores only a validated projection and atomic
   try {
     assert.deepEqual((await call('storybook', 'GET', access)).body, { projectId, exists: false, readers: [] });
     assert.equal((await call('comic', 'GET', access)).status, 403);
-    const privateWs = core.createWorkspace('storybook', { kind: 'private-snapshot', projectId });
-    core.writeRecord('storybook', privateWs.id, { body: { brainstorm: 'Never shared', facts: [{ status: 'ai_proposed' }] } });
+    const { workspace: privateWs } = core.savePrivateManuscript('storybook', projectId, {
+      book: { id: projectId, chapters: [], brainstorm: 'Never shared', facts: [{ status: 'ai_proposed' }] }
+    });
     assert.equal((await call('sandbox', 'PUT', route, { manuscript, readers: ['sandbox'] })).status, 403);
     assert.equal((await call('storybook', 'PUT', route, { manuscript: { title: 'Raw Book', brainstorm: 'Secret' }, readers: ['sandbox'] })).status, 400);
     assert.equal((await call('storybook', 'PUT', route, { manuscript: { ...manuscript, format: 1 }, readers: ['sandbox'] })).status, 400);

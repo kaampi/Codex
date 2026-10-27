@@ -297,6 +297,7 @@ export function openCore(path) {
       return transaction(() => {
         const ws = authorize(app, id, 'write');
         if (ws.kind === 'shared-manuscript') fail(403, 'Use the manuscript publication route');
+        if (ws.kind === 'private-snapshot') fail(403, 'Use the private manuscript route');
         if (input.body === undefined) fail(400, 'Missing body');
         const body = JSON.stringify(input.body);
         if (!body || body.length > 1_000_000) fail(400, 'Invalid body');
@@ -312,6 +313,7 @@ export function openCore(path) {
       return transaction(() => {
         const old = record(id); const ws = authorize(app, old.workspace_id, deleting ? 'delete' : 'write');
         if (ws.kind === 'shared-manuscript') fail(403, 'Use the manuscript publication route');
+        if (ws.kind === 'private-snapshot') fail(403, 'Use the private manuscript route');
         if (old.deleted) fail(404, 'Record not found');
         if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision !== old.revision) fail(409, 'Revision conflict');
         if (!deleting && input.body === undefined) fail(400, 'Missing body');
