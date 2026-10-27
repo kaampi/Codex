@@ -1,25 +1,13 @@
 {
-  "name": "@ocedo-apps/storycore",
-  "version": "0.2.0",
-  "description": "Shared, versioned export contract for the StoryBook AI family of apps. Holds no data itself — read-only, propose-only.",
-  "type": "module",
+  "name": "storycore",
   "private": true,
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "files": [
-    "dist"
+  "description": "Workspace root for the StoryCore packages: the shared export schema and the local Core service.",
+  "workspaces": [
+    "packages/*"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "prepare": "npm run build",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "typescript": "^5.5.4",
-    "vitest": "^3.2.6"
+    "build": "npm run build --workspace=@ocedo-apps/storycore",
+    "typecheck": "npm run typecheck --workspace=@ocedo-apps/storycore",
+    "test": "npm run test --workspace=@ocedo-apps/storycore && npm run test --workspace=@ocedo-apps/storycore-service"
   }
 }
