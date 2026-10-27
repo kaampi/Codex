@@ -1,0 +1,25 @@
+{
+  "name": "@ocedo-apps/storycore",
+  "version": "0.2.0",
+  "description": "Shared, versioned export contract for the StoryBook AI family of apps. Holds no data itself — read-only, propose-only.",
+  "type": "module",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^3.2.6"
+  }
+}

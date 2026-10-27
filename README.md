@@ -2,6 +2,15 @@
 
 Shared, versioned export contract for the StoryBook AI family of apps — currently [StoryBook AI](https://github.com/ocedo-apps/StoryBook-AI) and [ComicBook AI](https://github.com/ocedo-apps/ComicBook-AI).
 
+## Repository layout
+
+This is an npm workspaces monorepo with two packages:
+
+- [`packages/schema`](packages/schema) — `@ocedo-apps/storycore`, the export contract described below. No data, no server.
+- [`packages/service`](packages/service) — `@ocedo-apps/storycore-service`, the local Core service (SQLite-backed workspaces, grants, revisions, media, encrypted/scheduled backups and a local `/admin` page). It imports `@ocedo-apps/storycore` to validate manuscript publications against the same contract.
+
+`npm install` at the repo root links both packages together via npm workspaces; `npm run build`/`npm test` at the root delegate to the schema package (the service package has no build step — see its own `npm test`).
+
 ## What this is
 
 A small TypeScript package: a [Zod](https://zod.dev) schema and a validator for `ManuscriptExport`, the one shape StoryBook AI exports and sibling apps import. Nothing else. **StoryCore holds no data of its own** — no database, no server, no shared storage. It is a shared vocabulary, not a shared place.

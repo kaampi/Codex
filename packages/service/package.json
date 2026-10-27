@@ -1,10 +1,13 @@
 {
-  "name": "@ocedo-apps/core-service",
+  "name": "@ocedo-apps/storycore-service",
   "private": true,
   "type": "module",
   "engines": { "node": ">=22.13" },
   "scripts": {
     "start": "node server.mjs",
     "test": "node --test *.test.mjs"
+  },
+  "dependencies": {
+    "@ocedo-apps/storycore": "*"
   }
 }
