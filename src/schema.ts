@@ -2,9 +2,9 @@ import { z } from "zod";
 
 /**
  * The shared vocabulary for what kind of thing a Story Bible entity is.
- * Mirrors StoryBook AI's own `BIBLE_KINDS` (`bibleGroups.ts`) — a small,
+ * Mirrors kaampi Write's own `BIBLE_KINDS` (`bibleGroups.ts`) — a small,
  * rarely-changing enum, intentionally duplicated here rather than imported,
- * since StoryCore must never depend on StoryBook AI's internal modules.
+ * since kaampi Codex must never depend on kaampi Write's internal modules.
  */
 export const BIBLE_KINDS = ["characters", "locations", "objects", "groups", "events", "concepts"] as const;
 export const BibleKindSchema = z.enum(BIBLE_KINDS);
@@ -13,9 +13,9 @@ export type BibleKind = z.infer<typeof BibleKindSchema>;
 /**
  * One claim about an entity. `predicate` is carried through as an opaque
  * string (provenance only) — a consuming app has no business interpreting
- * StoryBook AI's internal predicate taxonomy, only displaying `label` and
+ * kaampi Write's internal predicate taxonomy, only displaying `label` and
  * `value`. Classification into a `BibleKind` has already happened on the
- * StoryBook AI side before export; nothing here needs to re-derive it.
+ * kaampi Write side before export; nothing here needs to re-derive it.
  */
 export const ExportedFactSchema = z.object({
   predicate: z.string().min(1),
@@ -26,9 +26,9 @@ export type ExportedFact = z.infer<typeof ExportedFactSchema>;
 
 /**
  * One Story Bible entity and everything a sibling app needs to use it —
- * structured fields, not the flattened display lines StoryBook AI's own
+ * structured fields, not the flattened display lines kaampi Write's own
  * human-readable Publish export uses. `referenceImages` carries existing
- * portraits/pictures inline as data URLs, the same way StoryBook AI's own
+ * portraits/pictures inline as data URLs, the same way kaampi Write's own
  * backup format embeds images — no separate asset files to keep track of.
  */
 export const ExportedEntitySchema = z.object({
@@ -77,7 +77,7 @@ export const ExportedChapterSchema = z.object({
   /**
    * Always at least one entry for a chapter with any prose — a chapter the
    * author never explicitly split still gets one scene spanning its whole
-   * prose (same convention StoryBook AI uses internally), so this is never
+   * prose (same convention kaampi Write uses internally), so this is never
    * an empty array for a non-empty chapter. Added in format 2; defaults to
    * [] reading a format-1 export, which has no scene data to recover.
    */
@@ -97,15 +97,15 @@ export const MANUSCRIPT_EXPORT_KIND = "storycore.manuscript-export";
 export const MANUSCRIPT_EXPORT_FORMAT = 2;
 
 /**
- * The full export contract. Deliberately NOT StoryBook AI's internal `Book`
+ * The full export contract. Deliberately NOT kaampi Write's internal `Book`
  * type — `Book` gains fields almost every release; binding a sibling app to
- * it directly would make every StoryBook AI change a possible breakage for
+ * it directly would make every kaampi Write change a possible breakage for
  * every sibling app. This shape only grows when the contract itself changes,
  * versioned via `format`.
  *
  * Only locked, visible facts belong in `bible` — the same visibility rule
  * Draft itself uses (`visibleLockedFacts`: locked, not superseded, not
- * hidden from the model, not a hidden entity), not StoryBook AI's more
+ * hidden from the model, not a hidden entity), not kaampi Write's more
  * permissive human-facing Publish export. A sibling app feeds this into
  * further AI generation, the same category of consumer as Draft, so it
  * should see only what Draft itself would see.

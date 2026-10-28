@@ -1,6 +1,6 @@
 // Builds a single-executable Core service: no Node.js install required on
 // the target machine. Mirrors the "unsigned build, that's expected for now"
-// stance StoryBook AI's own desktop-build.yml already takes (roadmap-ideas.md
+// stance kaampi Write's own desktop-build.yml already takes (roadmap-ideas.md
 // #35) - no code-signing here either, same reason (no budget for it yet).
 import { build } from 'esbuild';
 import { execFileSync } from 'node:child_process';

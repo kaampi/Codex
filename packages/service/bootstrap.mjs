@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 /**
  * First-run convenience: when a Core database has never been provisioned
  * (no app or admin credential exists yet), generate every credential the
- * StoryBook AI family needs and leave them in one local file next to the
+ * kaampi Write family needs and leave them in one local file next to the
  * database for a pairing desktop app to pick up automatically - no CLI,
  * no copy-pasting a 64-character key.
  *

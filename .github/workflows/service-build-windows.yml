@@ -5,10 +5,10 @@ name: Core service - Windows single-executable build
 # (explicit CORE_DB_PATH, and the zero-config default path an installer's
 # Startup shortcut relies on), and - on push to main - publishes it as a
 # GitHub Release so an installer can always fetch "the latest build" from
-# a stable URL, the same pattern StoryBook AI's own desktop-build.yml uses
+# a stable URL, the same pattern kaampi Write's own desktop-build.yml uses
 # for its installer.
 #
-# Unsigned build, same stance as StoryBook AI's own desktop-build.yml - no
+# Unsigned build, same stance as kaampi Write's own desktop-build.yml - no
 # code-signing secrets configured yet.
 
 on:
@@ -115,13 +115,13 @@ jobs:
       # Uploaded under its own plain name, storycore-service.exe - an
       # installer can fetch exactly that filename via GitHub's stable
       # ".../releases/latest/download/storycore-service.exe" pattern,
-      # the same convention as StoryBook AI's own StoryBook-AI-Setup.exe.
+      # the same convention kaampi Write's own installer stub uses.
       - name: Publish GitHub Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: storycore-service-v${{ steps.version.outputs.version }}
-          name: StoryCore service v${{ steps.version.outputs.version }}
+          name: kaampi Codex service v${{ steps.version.outputs.version }}
           body: Standalone Windows build of the Core service (packages/service). Unsigned - Windows SmartScreen will warn on first run.
           files: packages/service/dist/storycore-service.exe
           fail_on_unmatched_files: true

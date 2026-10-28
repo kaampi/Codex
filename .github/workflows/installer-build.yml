@@ -1,4 +1,4 @@
-name: StoryCore installer (Windows)
+name: kaampi Codex installer (Windows)
 
 # Compiles installer/storycore-installer.iss with Inno Setup on a
 # windows-latest runner - Inno Setup is Windows-only. Publishes to a
@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Compile the StoryCore installer
+      - name: Compile the kaampi Codex installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
         with:
           path: installer/storycore-installer.iss
@@ -33,7 +33,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: storycore-installer
-          name: StoryCore — installer
+          name: kaampi Codex — installer
           body: |
             Installs the Core service in the background: a Windows Startup
             shortcut, no admin rights, no configuration. Downloads the
@@ -41,5 +41,5 @@ jobs:
             stays current without needing a new installer build for every
             service update - see storycore-service-v<version> releases for
             the service build itself.
-          files: installer/output/StoryCore-Setup.exe
+          files: installer/output/kaampi-Codex-Setup.exe
           fail_on_unmatched_files: true
