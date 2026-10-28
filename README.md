@@ -12,7 +12,10 @@ The repo root **is** the `@ocedo-apps/storycore` package described below (`src/`
 
 ## What this is
 
-A small TypeScript package: a [Zod](https://zod.dev) schema and a validator for `ManuscriptExport`, the one shape StoryBook AI exports and sibling apps import. Nothing else. **StoryCore holds no data of its own** — no database, no server, no shared storage. It is a shared vocabulary, not a shared place.
+Two things, deliberately kept separate (see "Repository layout" above):
+
+- **The schema package (repo root)** — a small TypeScript package: a [Zod](https://zod.dev) schema and a validator for `ManuscriptExport`, the one shape StoryBook AI exports and sibling apps import. Nothing else. It holds no data of its own — no database, no server. It is a shared vocabulary, not a shared place.
+- **The service (`packages/service`)** — a local, SQLite-backed service that *does* hold data: per-manuscript private version checkpoints, filtered shared-manuscript projections for Sandbox/Comic, and encrypted backups. It runs entirely on the user's own machine; nothing here is a hosted or cloud service. The invariant below still holds for it — see "Additive integration contract" in [`docs/core-architecture.md`](https://github.com/ocedo-apps/StoryBook-AI/blob/main/docs/core-architecture.md) in the StoryBook AI repo for the full access-control model (grants, private-snapshot isolation, proposal/accept flow).
 
 ## The invariant this package exists to enforce
 
