@@ -2,6 +2,7 @@ import { openCore, createCoreServer } from './core.mjs';
 import { backupEncryption, createBackup, restoreBackup } from './backup.mjs';
 import { createAdminBackup } from './admin.mjs';
 import { drillBackup } from './drill.mjs';
+import { writeBootstrapIfFirstRun } from './bootstrap.mjs';
 import { createInterface } from 'node:readline/promises';
 
 const recoveryPhrase = async () => {
@@ -76,6 +77,9 @@ if (command === 'provision') {
   const port = Number(process.env.CORE_PORT ?? 43127);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid CORE_PORT');
   const mediaDir = process.env.CORE_MEDIA_DIR ?? file + '.media';
+  const bootstrapPath = process.env.CORE_BOOTSTRAP_PATH ?? file + '.bootstrap.json';
+  const firstRun = await writeBootstrapIfFirstRun(core, bootstrapPath);
+  if (firstRun) process.stdout.write(`First run: wrote pairing credentials to ${bootstrapPath}\n`);
   const adminBackup = createAdminBackup(core, mediaDir);
   const server = createCoreServer(core, { mediaDir, adminBackup });
   server.listen(port, '127.0.0.1', () => process.stdout.write(`Core listening on 127.0.0.1:${port}\n`));

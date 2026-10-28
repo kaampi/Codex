@@ -101,6 +101,11 @@ export function openCore(path) {
       run('INSERT INTO admin_keys(key_hash) VALUES(?)', digest(token).toString('hex'));
       return token;
     },
+    // Used only to decide whether a first-run bootstrap should provision
+    // every credential automatically; never a security check on its own.
+    hasAnyCredentials() {
+      return !!(get('SELECT 1 FROM app_keys LIMIT 1') || get('SELECT 1 FROM admin_keys LIMIT 1'));
+    },
     authenticateAdmin(token) {
       if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) fail(401, 'Unauthorized');
       const hash = digest(token);
