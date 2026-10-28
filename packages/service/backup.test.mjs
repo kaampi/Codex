@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { openCore } from './core.mjs';
 import { backupEncryption, createBackup, restoreBackup } from './backup.mjs';
@@ -42,7 +42,7 @@ test('encrypted backup restores revisions and media, validates key, and retains 
     for (let i = 0; i < 3; i++) await createBackup(core, { backupDir, mediaDir, passphrase: phrase, keep: 2 });
     const names = (await readdir(backupDir)).filter(name => name.endsWith('.sbcore'));
     assert.equal(names.length, 3);
-    assert.ok(names.includes(first.path.split('/').at(-1)));
+    assert.ok(names.includes(basename(first.path)));
   } finally { core.close(); await rm(root, { recursive: true, force: true }); }
 });
 
