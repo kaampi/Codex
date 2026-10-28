@@ -1,5 +1,6 @@
 {
   "name": "@ocedo-apps/storycore-service",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "engines": { "node": ">=22.13" },

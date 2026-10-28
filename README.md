@@ -71,9 +71,15 @@ npm run build:exe
 
 This bundles `server.mjs` and everything it imports (esbuild, to CommonJS — Node's SEA packaging does not accept an ESM main script) into `dist/core-service.cjs`, then injects it into a copy of the current Node binary at `dist/storycore-service` (`.exe` on Windows). The admin page's static files (`admin.html`/`.css`/`.js`) are embedded as SEA assets rather than read off disk — `sea-assets.mjs` reads them from disk during ordinary `node server.mjs` use (dev, tests) and from the SEA asset store when running as the packaged executable, picking the right one automatically via `node:sea`'s `isSea()`.
 
-On first run with a brand-new `CORE_DB_PATH`, the executable auto-provisions every credential (`storybook`, `sandbox`, `comic`, an admin key) and writes them to `<CORE_DB_PATH>.bootstrap.json` instead of requiring the `provision`/`provision-admin` CLI commands — see `bootstrap.mjs`. A pairing desktop app reads that file directly; nobody needs to copy a 64-character key by hand. `.github/workflows/service-build-windows.yml` builds and smoke-tests this on `windows-latest` on every push.
+`CORE_DB_PATH` is optional — unset, it defaults to `%LOCALAPPDATA%\StoryCore\core.db` on Windows (`~/.storycore/core.db` elsewhere), creating the folder if needed, so a zero-configuration install works with no environment variables set at all.
 
-Unsigned build, same stance as StoryBook AI's own desktop installer — no code-signing secrets configured yet, so Windows SmartScreen will warn on first run. An actual installer (Windows Startup entry, a sensible default data directory) that wraps this executable is separate, not-yet-built work.
+On first run with a brand-new database, the executable auto-provisions every credential (`storybook`, `sandbox`, `comic`, an admin key) and writes them to `<CORE_DB_PATH>.bootstrap.json` instead of requiring the `provision`/`provision-admin` CLI commands — see `bootstrap.mjs`. A pairing desktop app reads that file directly; nobody needs to copy a 64-character key by hand. `.github/workflows/service-build-windows.yml` builds and smoke-tests this (both an explicit `CORE_DB_PATH` and the zero-config default) on `windows-latest` on every push, and publishes the result as a `storycore-service-v<version>` GitHub Release.
+
+Unsigned build, same stance as StoryBook AI's own desktop installer — no code-signing secrets configured yet, so Windows SmartScreen will warn on first run.
+
+## Installing StoryCore (Windows)
+
+[`installer/storycore-installer.iss`](installer/storycore-installer.iss) wraps the executable above into an ordinary Windows installer: no admin rights, downloads the current service build at install time (so the installer itself rarely needs rebuilding), and sets up a Startup-folder shortcut so Core runs quietly in the background from then on — no command prompt, no configuration. `.github/workflows/installer-build.yml` compiles it with Inno Setup and publishes it to a dedicated `storycore-installer` GitHub Release, kept at a stable URL regardless of which service version it fetches. Pairing a sibling app (StoryBook AI, ComicBook AI, Sandbox) with the now-running service happens from inside that app's own "Connect" screen.
 
 ## License
 

@@ -4,6 +4,20 @@ import { createAdminBackup } from './admin.mjs';
 import { drillBackup } from './drill.mjs';
 import { writeBootstrapIfFirstRun } from './bootstrap.mjs';
 import { createInterface } from 'node:readline/promises';
+import { mkdir } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
+
+// An installed Core should need zero configuration: CORE_DB_PATH stays a
+// supported override (every test and every dev workflow already sets it
+// explicitly), but an installer's Startup shortcut should not need to
+// carry environment variables just to pick a sensible, per-user location.
+function defaultDbPath() {
+  const base = process.platform === 'win32' && process.env.LOCALAPPDATA
+    ? join(process.env.LOCALAPPDATA, 'StoryCore')
+    : join(homedir(), '.storycore');
+  return join(base, 'core.db');
+}
 
 const recoveryPhrase = async () => {
   if (process.stdin.isTTY) throw new Error('Supply recovery phrase via stdin from a secure prompt, never a command argument');
@@ -34,8 +48,8 @@ if (command === 'drill') {
   const mode = await backupEncryption(archive);
   process.stdout.write(JSON.stringify(await restoreBackup(archive, destination, mode === 'encrypted' ? await recoveryPhrase() : undefined)) + '\n');
 } else {
-const file = process.env.CORE_DB_PATH;
-if (!file) throw new Error('Set CORE_DB_PATH to a local SQLite file');
+const file = process.env.CORE_DB_PATH ?? defaultDbPath();
+await mkdir(dirname(file), { recursive: true });
 const core = openCore(file);
 if (command === 'provision') {
   const token = core.provision(process.argv[3]);
