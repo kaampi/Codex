@@ -23,7 +23,7 @@
 
 #define MyAppName "kaampi Codex"
 #define MyAppVersion "1.0"
-#define ServiceDownloadURL "https://github.com/ocedo-apps/StoryCore/releases/latest/download/storycore-service.exe"
+#define ServiceDownloadURL "https://github.com/kaampi/Codex/releases/latest/download/storycore-service.exe"
 
 [Setup]
 AppName={#MyAppName}
