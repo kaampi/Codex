@@ -42,13 +42,19 @@ if (process.platform !== 'win32') chmodSync(exe, 0o755);
 
 execFileSync(process.execPath, ['--experimental-sea-config', join(here, 'sea-config.json')], { cwd: here, stdio: 'inherit' });
 
-const postjectName = process.platform === 'win32' ? 'postject.cmd' : 'postject';
-const postjectBin = [join(here, 'node_modules', '.bin', postjectName), join(here, '..', '..', 'node_modules', '.bin', postjectName)]
-  .find(existsSync);
-if (!postjectBin) throw new Error('postject is not installed - run npm install at the repo root first.');
+// Resolved and invoked as a plain Node script (not the npm-generated
+// node_modules/.bin/postject[.cmd] shim): that shim is a batch file on
+// Windows, and spawnSync/execFileSync cannot launch a .cmd directly
+// (CreateProcess needs the command interpreter for that) - it fails with
+// EINVAL there regardless of the path being correct. Resolving the
+// package's own bin script and running it via `node <script>` sidesteps
+// the whole shell-vs-no-shell question identically on every platform.
+const postjectPackageJson = fileURLToPath(import.meta.resolve('postject/package.json'));
+const postjectCli = join(dirname(postjectPackageJson), 'dist', 'cli.js');
+if (!existsSync(postjectCli)) throw new Error(`postject's CLI script was not found at ${postjectCli} - run npm install at the repo root first.`);
 
-execFileSync(postjectBin, [
-  exe, 'NODE_SEA_BLOB', join(dist, 'sea-prep.blob'),
+execFileSync(process.execPath, [
+  postjectCli, exe, 'NODE_SEA_BLOB', join(dist, 'sea-prep.blob'),
   '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2'
 ], { stdio: 'inherit' });
 
