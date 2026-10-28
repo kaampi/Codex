@@ -5,9 +5,15 @@
   "engines": { "node": ">=22.13" },
   "scripts": {
     "start": "node server.mjs",
-    "test": "node --test *.test.mjs"
+    "test": "node --test *.test.mjs",
+    "bundle": "node build-exe.mjs --bundle-only",
+    "build:exe": "node build-exe.mjs"
   },
   "dependencies": {
     "@ocedo-apps/storycore": "file:../.."
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "postject": "^1.0.0-alpha.6"
   }
 }

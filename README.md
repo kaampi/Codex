@@ -60,6 +60,21 @@ note). A chapter never split into scenes still exports one scene spanning
 its whole prose. A format-1 export still validates under this schema; the
 new fields default to `""`/`[]` when absent.
 
+## Building a standalone Core service (no Node.js install required)
+
+`packages/service` can be packaged into one self-contained executable using Node's built-in [Single Executable Applications](https://nodejs.org/api/single-executable-applications.html) feature — the target machine needs nothing installed, not even Node.js:
+
+```sh
+cd packages/service
+npm run build:exe
+```
+
+This bundles `server.mjs` and everything it imports (esbuild, to CommonJS — Node's SEA packaging does not accept an ESM main script) into `dist/core-service.cjs`, then injects it into a copy of the current Node binary at `dist/storycore-service` (`.exe` on Windows). The admin page's static files (`admin.html`/`.css`/`.js`) are embedded as SEA assets rather than read off disk — `sea-assets.mjs` reads them from disk during ordinary `node server.mjs` use (dev, tests) and from the SEA asset store when running as the packaged executable, picking the right one automatically via `node:sea`'s `isSea()`.
+
+On first run with a brand-new `CORE_DB_PATH`, the executable auto-provisions every credential (`storybook`, `sandbox`, `comic`, an admin key) and writes them to `<CORE_DB_PATH>.bootstrap.json` instead of requiring the `provision`/`provision-admin` CLI commands — see `bootstrap.mjs`. A pairing desktop app reads that file directly; nobody needs to copy a 64-character key by hand. `.github/workflows/service-build-windows.yml` builds and smoke-tests this on `windows-latest` on every push.
+
+Unsigned build, same stance as StoryBook AI's own desktop installer — no code-signing secrets configured yet, so Windows SmartScreen will warn on first run. An actual installer (Windows Startup entry, a sensible default data directory) that wraps this executable is separate, not-yet-built work.
+
 ## License
 
 GPL-3.0, same as [StoryBook AI](https://github.com/ocedo-apps/StoryBook-AI) — see [LICENSE](LICENSE).

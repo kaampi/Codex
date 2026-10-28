@@ -14,6 +14,14 @@ const recoveryPhrase = async () => {
   }); return phrase; } finally { lines.close(); }
 };
 
+// Wrapped in an async function, not top-level await: esbuild's CJS output
+// (needed for Node's single-executable-application packaging, which only
+// accepts a CommonJS main script) cannot contain top-level await. Plain
+// `node server.mjs` runs identically either way - this just changes where
+// the awaiting happens, not the order of operations or error behavior (an
+// unhandled rejection here still crashes the process with a nonzero exit,
+// same as an uncaught top-level await would).
+async function main() {
 const command = process.argv[2];
 if (command === 'drill') {
   const archive = process.argv[3];
@@ -91,3 +99,6 @@ if (command === 'provision') {
   throw new Error('Usage: node server.mjs [provision <app>|provision-admin|backup|backup-schedule|drill <archive>|restore <archive> <new-directory>]');
 }
 }
+}
+
+main();

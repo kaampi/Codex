@@ -2,6 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
+import { readAdminAsset } from './sea-assets.mjs';
 import { join } from 'node:path';
 import { isAbsolute } from 'node:path';
 import { MANUSCRIPT_EXPORT_FORMAT, parseManuscriptExport } from '@ocedo-apps/storycore';
@@ -391,7 +392,7 @@ export function createCoreServer(core, { mediaDir, adminBackup } = {}) {
       }
       if (req.method === 'GET' && (url.pathname === '/admin' || url.pathname === '/admin.js' || url.pathname === '/admin.css')) {
         const asset = url.pathname === '/admin' ? 'admin.html' : url.pathname.slice(1);
-        const bytes = await readFile(new URL(`./${asset}`, import.meta.url));
+        const bytes = await readAdminAsset(asset);
         res.writeHead(200, {
           'content-type': url.pathname === '/admin' ? 'text/html; charset=utf-8' : url.pathname === '/admin.css' ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8',
           'cache-control': 'no-store', 'x-content-type-options': 'nosniff',
