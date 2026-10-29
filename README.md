@@ -1,4 +1,38 @@
-# StoryCore (kaampi Codex)
+<p align="center">
+  <img src="docs/logo-kaampi-codex.svg" alt="kaampi Codex" width="420">
+</p>
+
+<p align="center">The local sync service for the kaampi family. Your Story Bible, shared on your own machine.</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPLv3-blue.svg" alt="License: GPLv3"></a>
+</p>
+
+kaampi Codex is the local service that kaampi Write, kaampi Comic, and kaampi Explore pair with for backup and sharing Story Bible content. It runs entirely on your own computer — no cloud account required.
+
+## What's inside
+
+- **Local service** — SQLite-backed workspaces, grants, revisions, media, and encrypted/scheduled backups.
+- **Shared export contract** — a versioned manuscript schema that sibling apps use to exchange validated snapshots.
+- **Private checkpoints** — manuscript version history, kept separate from shared projections.
+- **Local administration** — an `/admin` page for managing the service.
+
+## The kaampi family
+
+kaampi Codex is one of four sibling apps that share a Story Bible via **kaampi Codex**, a local sync service — never a cloud account:
+
+- **[kaampi Write](https://github.com/kaampi/Write)** — long-form prose
+- **[kaampi Comic](https://github.com/kaampi/Comic)** — comic scripting and panel layout
+- **[kaampi Explore](https://github.com/kaampi/Explore)** — tabletop campaign sandbox
+- **[kaampi Codex](https://github.com/kaampi/Codex)** (this app) — the local sync service the others pair with
+
+Each is a sibling, not a module of another. The creative apps can be used independently; pair them with Codex from their own Connect screen when you want local backup and sharing.
+
+## Quickstart
+
+Install kaampi Codex using the instructions for [Windows](#installing-kaampi-codex-windows), [Linux](#installing-kaampi-codex-linux), or [macOS](#installing-kaampi-codex-macos) below, then pair your kaampi desktop apps from their Connect screen.
+
+## Technical overview
 
 Shared, versioned export contract for the kaampi family of creative apps — currently [kaampi Write](https://github.com/kaampi/Write) and [kaampi Comic](https://github.com/kaampi/Comic). "StoryCore" is this repository's and package's stable technical name; the app itself is branded kaampi Codex.
 
