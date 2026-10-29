@@ -1,0 +1,117 @@
+name: Core service - Linux single-executable build
+
+# Builds packages/service into one standalone storycore-service binary (no
+# Node.js install needed on the target machine) for Linux, smoke-tests it
+# the same two ways the Windows build already does (explicit CORE_DB_PATH,
+# and the zero-config default path - ~/.storycore here, the non-Windows
+# branch of server.mjs's defaultDbPath() - that an installer's autostart
+# unit relies on), and - on push to main - publishes it to the SAME GitHub
+# Release tag the Windows build uses (storycore-service-v<version>): one
+# release per service version, with one asset per platform, rather than
+# fragmenting into per-OS releases.
+#
+# Unsigned/unsandboxed build, same stance as the Windows build - no
+# code-signing or distro packaging infrastructure budgeted yet.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/service/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/service-build-linux.yml"
+  pull_request:
+    paths:
+      - "packages/service/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies (root + service workspace)
+        run: npm ci
+      - name: Run the service's own test suite
+        run: npm run test --workspace=@ocedo-apps/storycore-service
+      - name: Build the single-executable Core service
+        working-directory: packages/service
+        run: node build-exe.mjs
+      - name: Smoke-test the built binary (explicit CORE_DB_PATH)
+        run: |
+          set -euo pipefail
+          db_dir="$RUNNER_TEMP/core-smoke-explicit"
+          mkdir -p "$db_dir"
+          export CORE_DB_PATH="$db_dir/core.db"
+          export CORE_PORT=43199
+          packages/service/dist/storycore-service &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          ok=false
+          for i in $(seq 1 20); do
+            sleep 0.5
+            if curl -fsS "http://127.0.0.1:43199/admin" > /dev/null 2>&1; then ok=true; break; fi
+          done
+          if [ "$ok" != "true" ]; then echo "Core service did not respond on /admin"; exit 1; fi
+          bootstrap_path="${CORE_DB_PATH}.bootstrap.json"
+          if [ ! -f "$bootstrap_path" ]; then echo "Bootstrap credentials file was not written"; exit 1; fi
+          for key in storybook sandbox comic admin; do
+            value=$(node -e "const v=JSON.parse(require('fs').readFileSync('$bootstrap_path','utf8'))['$key']??''; process.stdout.write(v)")
+            if ! [[ "$value" =~ ^[0-9a-f]{64}$ ]]; then echo "Missing or malformed '$key' credential"; exit 1; fi
+          done
+          echo "Smoke test passed: service responded and auto-provisioned all credentials."
+      - name: Smoke-test the zero-config default database path
+        run: |
+          set -euo pipefail
+          unset CORE_DB_PATH
+          export HOME="$RUNNER_TEMP/core-smoke-default-home"
+          mkdir -p "$HOME"
+          export CORE_PORT=43200
+          packages/service/dist/storycore-service &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          ok=false
+          for i in $(seq 1 20); do
+            sleep 0.5
+            if curl -fsS "http://127.0.0.1:43200/admin" > /dev/null 2>&1; then ok=true; break; fi
+          done
+          if [ "$ok" != "true" ]; then echo "Core service did not respond on /admin with the default database path"; exit 1; fi
+          default_db="$HOME/.storycore/core.db"
+          if [ ! -f "$default_db" ]; then echo "Default database was not created at $default_db"; exit 1; fi
+          echo "Zero-config smoke test passed: service created its own database at $default_db."
+      - name: Upload the built executable (workflow artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: storycore-service-linux
+          path: packages/service/dist/storycore-service
+          if-no-files-found: error
+      - name: Read service version
+        if: github.event_name == 'push'
+        id: version
+        run: echo "version=$(node -p "require('./packages/service/package.json').version")" >> "$GITHUB_OUTPUT"
+      # Uploaded under its own plain name, storycore-service (no extension)
+      # - an installer can fetch exactly that filename via GitHub's stable
+      # ".../releases/latest/download/storycore-service" pattern, the same
+      # convention the Windows build's .exe asset already uses.
+      - name: Publish GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: storycore-service-v${{ steps.version.outputs.version }}
+          name: kaampi Codex service v${{ steps.version.outputs.version }}
+          body: Standalone build of the Core service (packages/service), published per platform as each platform's build completes - Windows (.exe) and Linux binaries. Unsigned; Windows SmartScreen will warn on first run for the .exe.
+          files: packages/service/dist/storycore-service
+          fail_on_unmatched_files: true

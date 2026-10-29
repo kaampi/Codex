@@ -73,13 +73,23 @@ This bundles `server.mjs` and everything it imports (esbuild, to CommonJS — No
 
 `CORE_DB_PATH` is optional — unset, it defaults to `%LOCALAPPDATA%\StoryCore\core.db` on Windows (`~/.storycore/core.db` elsewhere), creating the folder if needed, so a zero-configuration install works with no environment variables set at all. (That folder/path name stays `StoryCore` regardless of the app's `kaampi Codex` branding — a rebrand must never orphan an already-paired install's data.)
 
-On first run with a brand-new database, the executable auto-provisions every credential (`storybook`, `sandbox`, `comic`, an admin key) and writes them to `<CORE_DB_PATH>.bootstrap.json` instead of requiring the `provision`/`provision-admin` CLI commands — see `bootstrap.mjs`. A pairing desktop app reads that file directly; nobody needs to copy a 64-character key by hand. `.github/workflows/service-build-windows.yml` builds and smoke-tests this (both an explicit `CORE_DB_PATH` and the zero-config default) on `windows-latest` on every push, and publishes the result as a `storycore-service-v<version>` GitHub Release.
+On first run with a brand-new database, the executable auto-provisions every credential (`storybook`, `sandbox`, `comic`, an admin key) and writes them to `<CORE_DB_PATH>.bootstrap.json` instead of requiring the `provision`/`provision-admin` CLI commands — see `bootstrap.mjs`. A pairing desktop app reads that file directly; nobody needs to copy a 64-character key by hand. `.github/workflows/service-build-windows.yml` and `.github/workflows/service-build-linux.yml` build and smoke-test this (both an explicit `CORE_DB_PATH` and the zero-config default) on `windows-latest`/`ubuntu-latest` on every push, and publish the result to the same `storycore-service-v<version>` GitHub Release — one release per version, one binary asset per platform (`storycore-service.exe`, `storycore-service`).
 
 Unsigned build, same stance as kaampi Write's own desktop installer — no code-signing secrets configured yet, so Windows SmartScreen will warn on first run.
 
 ## Installing kaampi Codex (Windows)
 
 [`installer/storycore-installer.iss`](installer/storycore-installer.iss) wraps the executable above into an ordinary Windows installer: no admin rights, downloads the current service build at install time (so the installer itself rarely needs rebuilding), and sets up a Startup-folder shortcut so Core runs quietly in the background from then on — no command prompt, no configuration. `.github/workflows/installer-build.yml` compiles it with Inno Setup and publishes it to a dedicated `storycore-installer` GitHub Release, kept at a stable URL regardless of which service version it fetches. Pairing a sibling app (kaampi Write, kaampi Comic, kaampi Explore) with the now-running service happens from inside that app's own "Connect" screen.
+
+## Installing kaampi Codex (Linux)
+
+[`installer-linux/install.sh`](installer-linux/install.sh) is the Linux equivalent: no `sudo`, downloads the current service build at install time, installs it to `~/.local/share/StoryCore/bin`, and sets it up as a `systemd --user` service (`~/.config/systemd/user/storycore.service`) so it starts quietly whenever you log in — the closest per-user equivalent of the Windows Startup shortcut. Requires `systemctl --user` to be available, which it is by default on current Ubuntu, Fedora, Debian, Arch, Pop!_OS, Mint, and openSUSE; the installer refuses outright rather than silently leaving Core unable to start itself if it isn't.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/kaampi/Codex/main/installer-linux/install.sh | bash
+```
+
+Or download and read it first, same as any script you'd pipe into a shell. The installer writes its own `uninstall.sh` alongside the binary (`~/.local/share/StoryCore/uninstall.sh`) so removing it later needs nothing from this repo.
 
 ## License
 
