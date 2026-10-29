@@ -55,7 +55,26 @@ if (!existsSync(postjectCli)) throw new Error(`postject's CLI script was not fou
 
 execFileSync(process.execPath, [
   postjectCli, exe, 'NODE_SEA_BLOB', join(dist, 'sea-prep.blob'),
-  '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2'
+  '--sentinel-fuse', 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2',
+  // Node's own SEA docs: macOS Mach-O binaries need the blob injected into
+  // its own segment, or the result is a binary that looks built but
+  // segfaults immediately on exec (found the hard way - the first macOS
+  // CI run produced exactly that: a clean build, then "Segmentation
+  // fault: 11" the instant the smoke test tried to run it).
+  ...(process.platform === 'darwin' ? ['--macho-segment-name', 'NODE_SEA'] : [])
 ], { stdio: 'inherit' });
+
+// Also macOS-only, also from Node's SEA docs: postject's injection
+// invalidates whatever signature the copied node binary started with
+// (copyFileSync above copied a validly-signed node executable; it isn't
+// one anymore once its contents changed), and an invalidly-signed Mach-O
+// binary is refused at the kernel level, not just by Gatekeeper - that's
+// the segfault, not a Gatekeeper dialog. An ad-hoc signature (no Apple
+// Developer ID, no cost) is enough to make it launchable; real signing
+// can replace this step later if a Developer ID is ever budgeted for.
+if (process.platform === 'darwin') {
+  execFileSync('codesign', ['--remove-signature', exe], { stdio: 'inherit' });
+  execFileSync('codesign', ['--sign', '-', exe], { stdio: 'inherit' });
+}
 
 console.log(`Built ${exe}`);
