@@ -1,0 +1,127 @@
+name: Core service - Windows single-executable build
+
+# Builds packages/service into one standalone storycore-service.exe (no
+# Node.js install needed on the target machine), smoke-tests it two ways
+# (explicit CORE_DB_PATH, and the zero-config default path an installer's
+# Startup shortcut relies on), and - on push to main - publishes it as a
+# GitHub Release so an installer can always fetch "the latest build" from
+# a stable URL, the same pattern kaampi Write's own desktop-build.yml uses
+# for its installer.
+#
+# Unsigned build, same stance as kaampi Write's own desktop-build.yml - no
+# code-signing secrets configured yet.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/service/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/service-build-windows.yml"
+  pull_request:
+    paths:
+      - "packages/service/**"
+      - "src/**"
+      - "package.json"
+      - "package-lock.json"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies (root + service workspace)
+        run: npm ci
+      - name: Run the service's own test suite
+        run: npm run test --workspace=@ocedo-apps/storycore-service
+      - name: Build the single-executable Core service
+        working-directory: packages/service
+        run: node build-exe.mjs
+      - name: Smoke-test the built .exe (explicit CORE_DB_PATH)
+        shell: pwsh
+        run: |
+          $dbDir = Join-Path $env:RUNNER_TEMP "core-smoke-explicit"
+          New-Item -ItemType Directory -Path $dbDir | Out-Null
+          $env:CORE_DB_PATH = Join-Path $dbDir "core.db"
+          $env:CORE_PORT = "43199"
+          $proc = Start-Process -FilePath "packages/service/dist/storycore-service.exe" -PassThru -WindowStyle Hidden
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 20; $i++) {
+              Start-Sleep -Milliseconds 500
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:43199/admin" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ok = $true; break }
+              } catch {}
+            }
+            if (-not $ok) { throw "Core service did not respond on /admin" }
+            $bootstrapPath = "$($env:CORE_DB_PATH).bootstrap.json"
+            if (-not (Test-Path $bootstrapPath)) { throw "Bootstrap credentials file was not written" }
+            $credentials = Get-Content $bootstrapPath | ConvertFrom-Json
+            foreach ($key in @('storybook', 'sandbox', 'comic', 'admin')) {
+              if ($credentials.$key -notmatch '^[0-9a-f]{64}$') { throw "Missing or malformed '$key' credential" }
+            }
+            Write-Host "Smoke test passed: service responded and auto-provisioned all credentials."
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+      - name: Smoke-test the zero-config default database path
+        shell: pwsh
+        run: |
+          # No CORE_DB_PATH at all - this is exactly what an installer's
+          # Startup shortcut (no env vars to configure) relies on.
+          Remove-Item Env:\CORE_DB_PATH -ErrorAction SilentlyContinue
+          $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP "core-smoke-default-appdata"
+          $env:CORE_PORT = "43200"
+          $proc = Start-Process -FilePath "packages/service/dist/storycore-service.exe" -PassThru -WindowStyle Hidden
+          try {
+            $ok = $false
+            for ($i = 0; $i -lt 20; $i++) {
+              Start-Sleep -Milliseconds 500
+              try {
+                $response = Invoke-WebRequest -Uri "http://127.0.0.1:43200/admin" -UseBasicParsing -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ok = $true; break }
+              } catch {}
+            }
+            if (-not $ok) { throw "Core service did not respond on /admin with the default database path" }
+            $defaultDb = Join-Path $env:LOCALAPPDATA "StoryCore\core.db"
+            if (-not (Test-Path $defaultDb)) { throw "Default database was not created at $defaultDb" }
+            Write-Host "Zero-config smoke test passed: service created its own database at $defaultDb."
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+      - name: Upload the built executable (workflow artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: storycore-service-windows
+          path: packages/service/dist/storycore-service.exe
+          if-no-files-found: error
+      - name: Read service version
+        if: github.event_name == 'push'
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./packages/service/package.json').version")" >> "$GITHUB_OUTPUT"
+      # Uploaded under its own plain name, storycore-service.exe - an
+      # installer can fetch exactly that filename via GitHub's stable
+      # ".../releases/latest/download/storycore-service.exe" pattern,
+      # the same convention kaampi Write's own installer stub uses.
+      - name: Publish GitHub Release
+        if: github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: storycore-service-v${{ steps.version.outputs.version }}
+          name: kaampi Codex service v${{ steps.version.outputs.version }}
+          body: Standalone Windows build of the Core service (packages/service). Unsigned - Windows SmartScreen will warn on first run.
+          files: packages/service/dist/storycore-service.exe
+          fail_on_unmatched_files: true

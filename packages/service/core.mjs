@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
+import { readAdminAsset } from './sea-assets.mjs';
 import { join } from 'node:path';
 import { isAbsolute } from 'node:path';
 import { MANUSCRIPT_EXPORT_FORMAT, parseManuscriptExport } from '@ocedo-apps/storycore';
@@ -101,6 +102,11 @@ export function openCore(path) {
       const token = randomBytes(32).toString('hex');
       run('INSERT INTO admin_keys(key_hash) VALUES(?)', digest(token).toString('hex'));
       return token;
+    },
+    // Used only to decide whether a first-run bootstrap should provision
+    // every credential automatically; never a security check on its own.
+    hasAnyCredentials() {
+      return !!(get('SELECT 1 FROM app_keys LIMIT 1') || get('SELECT 1 FROM admin_keys LIMIT 1'));
     },
     authenticateAdmin(token) {
       if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) fail(401, 'Unauthorized');
@@ -401,7 +407,7 @@ export function createCoreServer(core, { mediaDir, adminBackup } = {}) {
       }
       if (req.method === 'GET' && (url.pathname === '/admin' || url.pathname === '/admin.js' || url.pathname === '/admin.css')) {
         const asset = url.pathname === '/admin' ? 'admin.html' : url.pathname.slice(1);
-        const bytes = await readFile(new URL(`./${asset}`, import.meta.url));
+        const bytes = await readAdminAsset(asset);
         res.writeHead(200, {
           'content-type': url.pathname === '/admin' ? 'text/html; charset=utf-8' : url.pathname === '/admin.css' ? 'text/css; charset=utf-8' : 'text/javascript; charset=utf-8',
           'cache-control': 'no-store', 'x-content-type-options': 'nosniff',

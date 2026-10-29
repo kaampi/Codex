@@ -2,7 +2,22 @@ import { openCore, createCoreServer } from './core.mjs';
 import { backupEncryption, createBackup, restoreBackup } from './backup.mjs';
 import { createAdminBackup } from './admin.mjs';
 import { drillBackup } from './drill.mjs';
+import { writeBootstrapIfFirstRun } from './bootstrap.mjs';
 import { createInterface } from 'node:readline/promises';
+import { mkdir } from 'node:fs/promises';
+import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
+
+// An installed Core should need zero configuration: CORE_DB_PATH stays a
+// supported override (every test and every dev workflow already sets it
+// explicitly), but an installer's Startup shortcut should not need to
+// carry environment variables just to pick a sensible, per-user location.
+function defaultDbPath() {
+  const base = process.platform === 'win32' && process.env.LOCALAPPDATA
+    ? join(process.env.LOCALAPPDATA, 'StoryCore')
+    : join(homedir(), '.storycore');
+  return join(base, 'core.db');
+}
 
 const recoveryPhrase = async () => {
   if (process.stdin.isTTY) throw new Error('Supply recovery phrase via stdin from a secure prompt, never a command argument');
@@ -13,6 +28,14 @@ const recoveryPhrase = async () => {
   }); return phrase; } finally { lines.close(); }
 };
 
+// Wrapped in an async function, not top-level await: esbuild's CJS output
+// (needed for Node's single-executable-application packaging, which only
+// accepts a CommonJS main script) cannot contain top-level await. Plain
+// `node server.mjs` runs identically either way - this just changes where
+// the awaiting happens, not the order of operations or error behavior (an
+// unhandled rejection here still crashes the process with a nonzero exit,
+// same as an uncaught top-level await would).
+async function main() {
 const command = process.argv[2];
 if (command === 'drill') {
   const archive = process.argv[3];
@@ -25,8 +48,8 @@ if (command === 'drill') {
   const mode = await backupEncryption(archive);
   process.stdout.write(JSON.stringify(await restoreBackup(archive, destination, mode === 'encrypted' ? await recoveryPhrase() : undefined)) + '\n');
 } else {
-const file = process.env.CORE_DB_PATH;
-if (!file) throw new Error('Set CORE_DB_PATH to a local SQLite file');
+const file = process.env.CORE_DB_PATH ?? defaultDbPath();
+await mkdir(dirname(file), { recursive: true });
 const core = openCore(file);
 if (command === 'provision') {
   const token = core.provision(process.argv[3]);
@@ -76,6 +99,9 @@ if (command === 'provision') {
   const port = Number(process.env.CORE_PORT ?? 43127);
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('Invalid CORE_PORT');
   const mediaDir = process.env.CORE_MEDIA_DIR ?? file + '.media';
+  const bootstrapPath = process.env.CORE_BOOTSTRAP_PATH ?? file + '.bootstrap.json';
+  const firstRun = await writeBootstrapIfFirstRun(core, bootstrapPath);
+  if (firstRun) process.stdout.write(`First run: wrote pairing credentials to ${bootstrapPath}\n`);
   const adminBackup = createAdminBackup(core, mediaDir);
   const server = createCoreServer(core, { mediaDir, adminBackup });
   server.listen(port, '127.0.0.1', () => process.stdout.write(`Core listening on 127.0.0.1:${port}\n`));
@@ -87,3 +113,6 @@ if (command === 'provision') {
   throw new Error('Usage: node server.mjs [provision <app>|provision-admin|backup|backup-schedule|drill <archive>|restore <archive> <new-directory>]');
 }
 }
+}
+
+main();

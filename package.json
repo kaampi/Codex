@@ -1,13 +1,28 @@
 {
-  "name": "storycore",
+  "name": "@ocedo-apps/storycore",
+  "version": "0.2.0",
+  "description": "Shared, versioned export contract for the kaampi Write family of apps. Holds no data itself — read-only, propose-only.",
+  "type": "module",
   "private": true,
-  "description": "Workspace root for the StoryCore packages: the shared export schema and the local Core service.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "workspaces": [
-    "packages/*"
+    "packages/service"
   ],
   "scripts": {
-    "build": "npm run build --workspace=@ocedo-apps/storycore",
-    "typecheck": "npm run typecheck --workspace=@ocedo-apps/storycore",
-    "test": "npm run test --workspace=@ocedo-apps/storycore && npm run test --workspace=@ocedo-apps/storycore-service"
+    "build": "tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run && npm run test --workspace=@ocedo-apps/storycore-service"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^3.2.6"
   }
 }
