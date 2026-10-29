@@ -150,10 +150,16 @@ test('an admin password works alongside the original key, never replaces it, and
     // ...a wrong password is rejected...
     assert.equal((await call('not-the-password', 'GET', '/admin/api/settings')).status, 401);
     // ...and the stored credential is a salted hash, never the password itself.
-    const row = new DatabaseSync(join(dir, 'core.db')).prepare('SELECT salt,hash FROM admin_password WHERE id=1').get();
-    assert.ok(row.salt && row.hash);
-    assert.notEqual(row.hash, 'a-real-admin-password');
-    assert.notEqual(row.hash.length, 0);
+    // A second, separate connection - must be closed explicitly before the
+    // finally block's rmSync, or Windows (unlike POSIX) refuses to delete
+    // a file a still-open handle points to.
+    const inspectDb = new DatabaseSync(join(dir, 'core.db'));
+    try {
+      const row = inspectDb.prepare('SELECT salt,hash FROM admin_password WHERE id=1').get();
+      assert.ok(row.salt && row.hash);
+      assert.notEqual(row.hash, 'a-real-admin-password');
+      assert.notEqual(row.hash.length, 0);
+    } finally { inspectDb.close(); }
   } finally { server.close(); await once(server, 'close'); core.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
