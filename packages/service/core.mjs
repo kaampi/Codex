@@ -1,6 +1,6 @@
 import { createPairing } from './pairing.mjs';
 import { DatabaseSync } from 'node:sqlite';
-import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, scryptSync, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 import { mkdir, open, readFile, rename, rm } from 'node:fs/promises';
 import { readAdminAsset } from './sea-assets.mjs';
@@ -13,6 +13,14 @@ const shareReaders = new Set(['sandbox', 'comic']);
 const MAX_SHARED_MANUSCRIPT_BYTES = 20_000_000;
 const MAX_PRIVATE_MANUSCRIPT_BYTES = 50_000_000;
 const digest = token => createHash('sha256').update(token).digest();
+// scrypt, not the plain digest() above: that's a fast hash, correct only
+// for a 256-bit random token where brute-forcing the hash space is
+// infeasible regardless of speed. A human-chosen password has far less
+// entropy, so it needs a deliberately slow, salted KDF - otherwise a
+// leaked database (e.g. a copied .db file) would make the password
+// crackable offline in practice, not just in theory.
+const MIN_ADMIN_PASSWORD_LENGTH = 12;
+const scryptHash = (password, salt) => scryptSync(password, salt, 64);
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 const required = (value, name) => {
   if (typeof value !== 'string' || !value.trim() || value.length > 256) fail(400, `Invalid ${name}`);
@@ -32,6 +40,7 @@ export function openCore(path) {
     CREATE TABLE IF NOT EXISTS audit (id INTEGER PRIMARY KEY, app TEXT NOT NULL, action TEXT NOT NULL, resource_id TEXT NOT NULL, at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS media (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), sha256 TEXT NOT NULL, size INTEGER NOT NULL, content_type TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS admin_keys (key_hash TEXT PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS admin_password (id INTEGER PRIMARY KEY CHECK(id=1), salt TEXT NOT NULL, hash TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS backup_settings (id INTEGER PRIMARY KEY CHECK(id=1), backup_dir TEXT NOT NULL, encrypted INTEGER NOT NULL, keep INTEGER NOT NULL);
   `);
   if (!db.prepare('PRAGMA table_info(workspaces)').all().some(column => column.name === 'project_id')) {
@@ -108,11 +117,45 @@ export function openCore(path) {
     hasAnyCredentials() {
       return !!(get('SELECT 1 FROM app_keys LIMIT 1') || get('SELECT 1 FROM admin_keys LIMIT 1'));
     },
-    authenticateAdmin(token) {
-      if (typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) fail(401, 'Unauthorized');
-      const hash = digest(token);
-      const row = get('SELECT key_hash FROM admin_keys WHERE key_hash=?', hash.toString('hex'));
-      if (!row || !timingSafeEqual(hash, Buffer.from(row.key_hash, 'hex'))) fail(401, 'Unauthorized');
+    // Accepts either the original 64-character provisioned key (always
+    // valid, the recovery path if a chosen password is forgotten) or an
+    // admin-chosen password set via setAdminPassword - so day-to-day
+    // login never requires copying a 64-character secret once a password
+    // exists (Mats, 2026-10-29: "sedan borde man kunna skapa ett
+    // adminlösenord eller pinkod eller nåt").
+    authenticateAdmin(credential) {
+      if (typeof credential !== 'string' || !credential || credential.length > 256) fail(401, 'Unauthorized');
+      let ok = false;
+      if (/^[0-9a-f]{64}$/.test(credential)) {
+        const hash = digest(credential);
+        const row = get('SELECT key_hash FROM admin_keys WHERE key_hash=?', hash.toString('hex'));
+        if (row && timingSafeEqual(hash, Buffer.from(row.key_hash, 'hex'))) ok = true;
+      }
+      if (!ok && this.verifyAdminPassword(credential)) ok = true;
+      if (!ok) fail(401, 'Unauthorized');
+    },
+    hasAdminPassword() {
+      return !!get('SELECT 1 FROM admin_password WHERE id=1');
+    },
+    // Only reachable once already authenticated (the /admin/api/ route
+    // checks authenticateAdmin first) - setting a new password cannot by
+    // itself be used to gain access, only to change how you log in next time.
+    setAdminPassword(password) {
+      if (typeof password !== 'string' || password.length < MIN_ADMIN_PASSWORD_LENGTH || password.length > 256) {
+        fail(400, `Password must be at least ${MIN_ADMIN_PASSWORD_LENGTH} characters`);
+      }
+      const salt = randomBytes(16).toString('hex');
+      const hash = scryptHash(password, salt).toString('hex');
+      run('INSERT INTO admin_password(id,salt,hash) VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET salt=excluded.salt,hash=excluded.hash', salt, hash);
+      audit('core-admin', 'admin.password.set', 'core');
+    },
+    verifyAdminPassword(password) {
+      if (typeof password !== 'string' || !password) return false;
+      const row = get('SELECT salt,hash FROM admin_password WHERE id=1');
+      if (!row) return false;
+      const candidate = scryptHash(password, row.salt);
+      const stored = Buffer.from(row.hash, 'hex');
+      return candidate.length === stored.length && timingSafeEqual(candidate, stored);
     },
     backupSettings() {
       const row = get('SELECT backup_dir,encrypted,keep,interval_hours FROM backup_settings WHERE id=1');
@@ -416,7 +459,10 @@ export function createCoreServer(core, { mediaDir, adminBackup } = {}) {
         res.end(bytes); return;
       }
       if (url.pathname.startsWith('/admin/api/')) {
-        core.authenticateAdmin(/^Bearer ([0-9a-f]{64})$/.exec(req.headers.authorization ?? '')?.[1]);
+        // Not restricted to the 64-char token shape here anymore - an
+        // admin-chosen password is a different, shorter credential;
+        // authenticateAdmin itself validates whichever shape it gets.
+        core.authenticateAdmin(/^Bearer (.+)$/.exec(req.headers.authorization ?? '')?.[1]);
         const adminBody = async () => {
           const chunks = []; let size = 0;
           for await (const chunk of req) { size += chunk.length; if (size > 16_384) fail(413, 'Admin request too large'); chunks.push(chunk); }
@@ -432,6 +478,10 @@ export function createCoreServer(core, { mediaDir, adminBackup } = {}) {
           const input = await adminBody();
           if (typeof input.approved !== 'boolean') fail(400, 'Approval required');
           result = pairing.decide(input.id, input.approved);
+        }
+        else if (url.pathname === '/admin/api/password' && req.method === 'PUT') {
+          core.setAdminPassword((await adminBody()).password);
+          result = { ok: true };
         }
         else if (url.pathname === '/admin/api/settings' && req.method === 'GET') result = core.backupSettings();
         else if (url.pathname === '/admin/api/settings' && req.method === 'PUT') {

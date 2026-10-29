@@ -10,6 +10,8 @@ function lock() {
   adminToken = '';
   byId('admin-token').value = '';
   byId('passphrase').value = '';
+  byId('new-password').value = '';
+  byId('confirm-password').value = '';
   byId('controls').hidden = true;
   byId('login-card').hidden = false;
   byId('backups').replaceChildren();
@@ -96,6 +98,18 @@ byId('login-form').addEventListener('submit', event => {
 });
 
 byId('lock').addEventListener('click', () => { lock(); status('Hanteringen är låst.'); });
+
+byId('password-form').addEventListener('submit', event => {
+  event.preventDefault();
+  void run(event.submitter, async () => {
+    const password = byId('new-password').value;
+    try {
+      if (password !== byId('confirm-password').value) throw new Error('Lösenorden matchar inte.');
+      await api('password', 'PUT', { password });
+      status('Adminlösenordet är sparat. Du kan logga in med det nästa gång.');
+    } finally { byId('new-password').value = ''; byId('confirm-password').value = ''; }
+  });
+});
 
 byId('settings-form').addEventListener('submit', event => {
   event.preventDefault();

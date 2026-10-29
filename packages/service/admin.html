@@ -12,10 +12,11 @@
     <header><span class="eyebrow">Lokal tjänst</span><h1>Storybook Core</h1><p>Backup för hela Core-databasen och dess media. Storybook, Sandbox och Comic behåller sina egna data och behörigheter.</p></header>
     <section class="card" id="login-card">
       <h2>Administratörsåtkomst</h2>
-      <p>Skapa en separat adminnyckel med <code>node packages/service/server.mjs provision-admin</code> och samma <code>CORE_DB_PATH</code> som tjänsten använder. Ange nyckeln här. Den sparas inte i webbläsaren.</p>
-      <form id="login-form"><label>Adminnyckel<input id="admin-token" type="password" autocomplete="off" required></label><button type="submit">Öppna Core-hantering</button></form>
+      <p>Skapa en separat adminnyckel med <code>node packages/service/server.mjs provision-admin</code> och samma <code>CORE_DB_PATH</code> som tjänsten använder. Ange nyckeln här första gången. Därefter går det att sätta ett eget lösenord nedan under Adminlösenord, så slipper du spara den långa nyckeln till vardags — nyckeln fortsätter fungera som reserv. Ingetdera sparas i webbläsaren.</p>
+      <form id="login-form"><label>Adminnyckel eller lösenord<input id="admin-token" type="password" autocomplete="current-password" required></label><button type="submit">Öppna Core-hantering</button></form>
     </section>
     <div id="controls" hidden>
+<section class="card"><h2>Adminlösenord</h2><p>Logga in med ett eget lösenord istället för den 64 tecken långa adminnyckeln. Nyckeln fortsätter fungera som reserv om du glömmer lösenordet.</p><form id="password-form"><label>Nytt lösenord<input id="new-password" type="password" autocomplete="new-password" minlength="12" placeholder="Minst 12 tecken" required></label><label>Bekräfta lösenord<input id="confirm-password" type="password" autocomplete="new-password" minlength="12" required></label><button type="submit">Spara lösenord</button></form></section>
 <section class="card"><h2>Anslut appar</h2><p>Godkänn bara en begäran du själv startat. Kontrollera att koden är samma i appen.</p><button id="refresh-pairing" type="button">Uppdatera anslutningsförsök</button><ul id="pairing-attempts"></ul></section>
       <section class="card">
         <div class="heading"><h2>Backupinställningar</h2><button id="lock" type="button" class="secondary">Lås</button></div>

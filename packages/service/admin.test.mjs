@@ -27,7 +27,9 @@ test('Core management uses a separate administrator identity and verifies backup
     const page = await fetch(base + '/admin');
     assert.equal(page.status, 200);
     assert.match(page.headers.get('content-security-policy'), /script-src 'self'/);
-    assert.match(await page.text(), /Backupinställningar/);
+    const pageText = await page.text();
+    assert.match(pageText, /Backupinställningar/);
+    assert.match(pageText, /Adminlösenord/);
     assert.equal((await fetch(base + '/admin.js')).status, 200);
     assert.equal((await fetch(base + '/admin.css')).status, 200);
     const wrongHost = await new Promise((resolve, reject) => {
@@ -118,6 +120,41 @@ test('schedule is admin only, pauses encrypted backups after restart, and report
     assert.equal(backup.scheduleStatus().state, 'locked');
     assert.equal(callback, undefined);
   } finally { await backup.stop(); server.close(); await once(server, 'close'); core.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('an admin password works alongside the original key, never replaces it, and is hashed, not stored plain', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'core-admin-password-'));
+  const core = openCore(join(dir, 'core.db'));
+  const adminToken = core.provisionAdmin();
+  const server = createCoreServer(core, { mediaDir: join(dir, 'media') });
+  server.listen(0, '127.0.0.1'); await once(server, 'listening');
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const call = async (credential, method, path, input) => {
+    const response = await fetch(base + path, {
+      method, headers: { authorization: `Bearer ${credential}`, ...(input ? { 'content-type': 'application/json' } : {}) },
+      ...(input ? { body: JSON.stringify(input) } : {})
+    });
+    return { status: response.status, data: await response.json() };
+  };
+  try {
+    assert.equal(core.hasAdminPassword(), false);
+    // No password set yet - a plausible-looking password is just an unrecognized credential.
+    assert.equal((await call('a-made-up-password', 'GET', '/admin/api/settings')).status, 401);
+    assert.equal((await call(adminToken, 'PUT', '/admin/api/password', { password: 'too-short' })).status, 400);
+    assert.equal((await call(adminToken, 'PUT', '/admin/api/password', { password: 'a-real-admin-password' })).status, 200);
+    assert.equal(core.hasAdminPassword(), true);
+    // The password now works for ordinary admin calls...
+    assert.equal((await call('a-real-admin-password', 'GET', '/admin/api/settings')).status, 200);
+    // ...the original 64-character key still works too, as the recovery path...
+    assert.equal((await call(adminToken, 'GET', '/admin/api/settings')).status, 200);
+    // ...a wrong password is rejected...
+    assert.equal((await call('not-the-password', 'GET', '/admin/api/settings')).status, 401);
+    // ...and the stored credential is a salted hash, never the password itself.
+    const row = new DatabaseSync(join(dir, 'core.db')).prepare('SELECT salt,hash FROM admin_password WHERE id=1').get();
+    assert.ok(row.salt && row.hash);
+    assert.notEqual(row.hash, 'a-real-admin-password');
+    assert.notEqual(row.hash.length, 0);
+  } finally { server.close(); await once(server, 'close'); core.close(); rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('existing backup settings migrate to a disabled schedule', () => {
