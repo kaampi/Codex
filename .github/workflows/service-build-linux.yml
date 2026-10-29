@@ -102,16 +102,20 @@ jobs:
         if: github.event_name == 'push'
         id: version
         run: echo "version=$(node -p "require('./packages/service/package.json').version")" >> "$GITHUB_OUTPUT"
-      # Uploaded under its own plain name, storycore-service (no extension)
-      # - an installer can fetch exactly that filename via GitHub's stable
-      # ".../releases/latest/download/storycore-service" pattern, the same
-      # convention the Windows build's .exe asset already uses.
+      # Renamed with a -linux suffix (was the bare "storycore-service" name
+      # until the macOS build landed - that name would otherwise collide
+      # with macOS's own unsuffixed binary in the same release). An
+      # installer fetches this exact filename via GitHub's stable
+      # ".../releases/latest/download/storycore-service-linux" pattern.
+      - name: Copy binary under a platform-specific filename
+        if: github.event_name == 'push'
+        run: cp packages/service/dist/storycore-service packages/service/dist/storycore-service-linux
       - name: Publish GitHub Release
         if: github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: storycore-service-v${{ steps.version.outputs.version }}
           name: kaampi Codex service v${{ steps.version.outputs.version }}
-          body: Standalone build of the Core service (packages/service), published per platform as each platform's build completes - Windows (.exe) and Linux binaries. Unsigned; Windows SmartScreen will warn on first run for the .exe.
-          files: packages/service/dist/storycore-service
+          body: Standalone build of the Core service (packages/service), published per platform as each platform's build completes - Windows, Linux, and macOS binaries. Unsigned; Windows SmartScreen will warn on first run for the .exe, and macOS Gatekeeper will refuse to open the binary from a plain double-click until it's un-quarantined (see README).
+          files: packages/service/dist/storycore-service-linux
           fail_on_unmatched_files: true

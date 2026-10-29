@@ -73,9 +73,9 @@ This bundles `server.mjs` and everything it imports (esbuild, to CommonJS — No
 
 `CORE_DB_PATH` is optional — unset, it defaults to `%LOCALAPPDATA%\StoryCore\core.db` on Windows (`~/.storycore/core.db` elsewhere), creating the folder if needed, so a zero-configuration install works with no environment variables set at all. (That folder/path name stays `StoryCore` regardless of the app's `kaampi Codex` branding — a rebrand must never orphan an already-paired install's data.)
 
-On first run with a brand-new database, the executable auto-provisions every credential (`storybook`, `sandbox`, `comic`, an admin key) and writes them to `<CORE_DB_PATH>.bootstrap.json` instead of requiring the `provision`/`provision-admin` CLI commands — see `bootstrap.mjs`. A pairing desktop app reads that file directly; nobody needs to copy a 64-character key by hand. `.github/workflows/service-build-windows.yml` and `.github/workflows/service-build-linux.yml` build and smoke-test this (both an explicit `CORE_DB_PATH` and the zero-config default) on `windows-latest`/`ubuntu-latest` on every push, and publish the result to the same `storycore-service-v<version>` GitHub Release — one release per version, one binary asset per platform (`storycore-service.exe`, `storycore-service`).
+On first run with a brand-new database, the executable auto-provisions every credential (`storybook`, `sandbox`, `comic`, an admin key) and writes them to `<CORE_DB_PATH>.bootstrap.json` instead of requiring the `provision`/`provision-admin` CLI commands — see `bootstrap.mjs`. A pairing desktop app reads that file directly; nobody needs to copy a 64-character key by hand. `.github/workflows/service-build-windows.yml`, `.github/workflows/service-build-linux.yml`, and `.github/workflows/service-build-macos.yml` build and smoke-test this (both an explicit `CORE_DB_PATH` and the zero-config default) on `windows-latest`/`ubuntu-latest`/`macos-latest` on every push, and publish the result to the same `storycore-service-v<version>` GitHub Release — one release per version, one binary asset per platform (`storycore-service.exe`, `storycore-service-linux`, `storycore-service-macos`).
 
-Unsigned build, same stance as kaampi Write's own desktop installer — no code-signing secrets configured yet, so Windows SmartScreen will warn on first run.
+Unsigned build, same stance as kaampi Write's own desktop installer — no code-signing secrets configured yet, so Windows SmartScreen will warn on first run, and macOS Gatekeeper will refuse to open the binary at all from a plain double-click until it's un-quarantined (the macOS installer below handles this itself).
 
 ## Installing kaampi Codex (Windows)
 
@@ -90,6 +90,18 @@ curl -fsSL https://raw.githubusercontent.com/kaampi/Codex/main/installer-linux/i
 ```
 
 Or download and read it first, same as any script you'd pipe into a shell. The installer writes its own `uninstall.sh` alongside the binary (`~/.local/share/StoryCore/uninstall.sh`) so removing it later needs nothing from this repo.
+
+## Installing kaampi Codex (macOS)
+
+[`installer-macos/install.sh`](installer-macos/install.sh) is the macOS equivalent: no `sudo`, downloads the current service build at install time to `~/Library/Application Support/StoryCore/bin`, and registers a per-user `launchd` LaunchAgent (`~/Library/LaunchAgents/se.ocedo.storycore.plist`) so it starts quietly whenever you log in.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/kaampi/Codex/main/installer-macos/install.sh | bash
+```
+
+Or download and read it first, same as any script you'd pipe into a shell. The installer writes its own `uninstall.sh` alongside the binary (`~/Library/Application Support/StoryCore/uninstall.sh`) so removing it later needs nothing from this repo.
+
+**Gatekeeper note:** macOS blocks an unsigned, unnotarized binary from launching at all if it was downloaded through a browser (the `com.apple.quarantine` attribute browsers set triggers this) — no Apple Developer ID is budgeted for yet (same stance as the unsigned Windows/Linux builds). `curl`, which this installer uses, does not set that attribute, so the install script's own download isn't affected; the installer strips it defensively anyway (`xattr -d com.apple.quarantine`) in case that ever changes. If you instead download the binary straight from a browser link, right-click it and choose Open once, or run `xattr -d com.apple.quarantine <path>` yourself before trying to run it.
 
 ## License
 
