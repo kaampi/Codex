@@ -1,3 +1,4 @@
+import { createPairing } from './pairing.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
@@ -375,6 +376,7 @@ export function openCore(path) {
 }
 
 export function createCoreServer(core, { mediaDir, adminBackup } = {}) {
+  const pairing = createPairing(core);
   return createServer(async (req, res) => {
     const send = (status, value) => { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' }); res.end(JSON.stringify(value)); };
     try {
@@ -383,6 +385,19 @@ export function createCoreServer(core, { mediaDir, adminBackup } = {}) {
         const host = req.headers.host ?? '';
         if (!/^(127\.0\.0\.1|localhost):[0-9]{1,5}$/.test(host) ||
             (req.headers.origin && req.headers.origin !== `http://${host}`)) fail(403, 'Invalid admin origin');
+      }
+      if (url.pathname.startsWith('/v1/pairing')) {
+        const host = req.headers.host ?? '';
+        if (!/^(127\.0\.0\.1|localhost):[0-9]{1,5}$/.test(host) || req.headers.origin || !['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)) fail(403, 'Native local pairing only');
+        if (req.method !== 'POST' || req.headers['content-type'] !== 'application/json') fail(405, 'POST JSON required');
+        const chunks = []; let size = 0;
+        for await (const chunk of req) { size += chunk.length; if (size > 1024) fail(413, 'Request too large'); chunks.push(chunk); }
+        let input; try { input = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { fail(400, 'Invalid JSON'); }
+        if (!input || typeof input !== 'object') fail(400, 'Invalid request');
+        if (url.pathname === '/v1/pairing') { send(200, pairing.begin(input.app)); return; }
+        const claim = /^\/v1\/pairing\/([0-9a-f]{32})\/claim$/.exec(url.pathname);
+        if (!claim) fail(404, 'Not found');
+        send(200, pairing.claim(claim[1], input.secret)); return;
       }
       if (req.method === 'GET' && (url.pathname === '/admin' || url.pathname === '/admin.js' || url.pathname === '/admin.css')) {
         const asset = url.pathname === '/admin' ? 'admin.html' : url.pathname.slice(1);
@@ -406,7 +421,13 @@ export function createCoreServer(core, { mediaDir, adminBackup } = {}) {
           } catch (error) { if (error.status) throw error; fail(400, 'Invalid JSON'); }
         };
         let result;
-        if (url.pathname === '/admin/api/settings' && req.method === 'GET') result = core.backupSettings();
+        if (url.pathname === '/admin/api/pairing' && req.method === 'GET') result = pairing.list();
+        else if (url.pathname === '/admin/api/pairing' && req.method === 'POST') {
+          const input = await adminBody();
+          if (typeof input.approved !== 'boolean') fail(400, 'Approval required');
+          result = pairing.decide(input.id, input.approved);
+        }
+        else if (url.pathname === '/admin/api/settings' && req.method === 'GET') result = core.backupSettings();
         else if (url.pathname === '/admin/api/settings' && req.method === 'PUT') {
           result = core.setBackupSettings(await adminBody());
           adminBackup?.reconfigure();

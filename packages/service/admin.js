@@ -133,3 +133,19 @@ byId('unlock-schedule').addEventListener('click', event => void run(event.curren
 byId('lock-schedule').addEventListener('click', event => void run(event.currentTarget, async () => {
   await api('schedule/lock', 'POST', {}); await refreshSchedule(); status('Det krypterade schemat är pausat.');
 }));
+
+async function refreshPairing() {
+ const list=byId('pairing-attempts'); list.replaceChildren();
+ for(const attempt of await api('pairing')) {
+  const item=document.createElement('li');
+  const text=document.createElement('span'); text.textContent=attempt.appName+' · '+attempt.code+' ';
+  item.append(text);
+  for(const [label,approved] of [['Tillåt',true],['Avvisa',false]]) {
+   const button=document.createElement('button'); button.type='button'; button.textContent=label;
+   button.addEventListener('click',()=>void run(button,async()=>{await api('pairing','POST',{id:attempt.id,approved});await refreshPairing();}));item.append(button);
+  }
+  list.append(item);
+ }
+ if(!list.children.length)list.textContent='Inga väntande anslutningsförsök.';
+}
+byId('refresh-pairing').addEventListener('click',event=>void run(event.currentTarget,refreshPairing));
