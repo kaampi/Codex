@@ -75,3 +75,39 @@ test('server.mjs writes the bootstrap file on its very first start', async () =>
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test('CORE_HOST defaults to 127.0.0.1 and can be widened for a LAN connection', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'core-host-'));
+  const dbPath = join(root, 'core.db');
+
+  async function startAndReadBanner(env) {
+    const child = spawn(process.execPath, [fileURLToPath(new URL('./server.mjs', import.meta.url))], {
+      env: { ...process.env, CORE_DB_PATH: dbPath, ...env },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+    let output = '';
+    child.stdout.on('data', chunk => { output += chunk; });
+    try {
+      await new Promise((resolve, reject) => {
+        const onData = () => { if (/Core listening on/.test(output)) { child.stdout.off('data', onData); resolve(); } };
+        child.stdout.on('data', onData);
+        child.once('exit', code => reject(new Error(`server exited early with code ${code}`)));
+        setTimeout(() => reject(new Error('timed out waiting for the listening banner')), 10_000);
+      });
+      return output;
+    } finally {
+      child.kill('SIGTERM');
+      await once(child, 'exit').catch(() => {});
+    }
+  }
+
+  try {
+    const defaultBanner = await startAndReadBanner({ CORE_PORT: '43178' });
+    assert.match(defaultBanner, /Core listening on 127\.0\.0\.1:43178/);
+
+    const widenedBanner = await startAndReadBanner({ CORE_PORT: '43179', CORE_HOST: '0.0.0.0' });
+    assert.match(widenedBanner, /Core listening on 0\.0\.0\.0:43179/);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
